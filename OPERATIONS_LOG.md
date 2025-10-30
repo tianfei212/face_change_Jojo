@@ -111,3 +111,4 @@
 - [15:44:32] 修复Cockpit采集显示：加入STUN配置与非阻塞统计刷新。
 - [15:45:51] 兼容streamlit-webrtc新旧API：确保浏览器视频采集显示。
 - [15:48:43] 进一步修复：WebRTC显示与权限提示，确保采集可见。
+- [19:43:23] 修复：使用VideoProcessorBase.recv()，移除线程内Streamlit调用，稳定显示。
