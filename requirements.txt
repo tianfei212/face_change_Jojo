@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+requests
+pydantic
+aiortc
+opencv-python
+onnxruntime-gpu
+numpy
+av
+streamlit
+streamlit-webrtc
