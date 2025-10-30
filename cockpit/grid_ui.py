@@ -101,7 +101,7 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
         }}
       }}
       if (enabled) startStream(); else stopStream();
-    })();
+    }})();
     </script>
     """
 

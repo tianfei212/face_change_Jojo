@@ -116,3 +116,10 @@
 - [19:58:39] WebRTC预览放大与设备选择；无本地设备时隐藏选项。
 - [20:01:44] 添加日志组件；配置设定为debug模式；日志显示帧与处理耗时。
 - [20:05:17] 修复TypeError：移除不兼容参数；加入facingMode约束替代设备选择。
+ - [20:12:05] 前端：将本地直显改造为固定 400x400 的 2x3 栅格。
+ - [20:12:59] 抽离组件至 `cockpit/grid_ui.py` 并在 `cockpit/app.py` 集成。
+ - [20:14:31] 修复 f-string 右花括号转义导致的 SyntaxError；恢复页面可见。
+ - [20:16:02] 端口占用切换至 `:8599` 并成功启动；预览地址 `http://localhost:8599`。
+ - [20:17:20] 预览验证：2x3 网格渲染正常，浏览器控制台无错误。
+ - [20:18:07] 提交并推送：feat(cockpit): extract 2x3 local grid to cockpit/grid_ui.py and integrate; preview at 400x400
+ - [20:20:11] 补充本次操作记录（OPERATIONS_LOG.md）并同步至远端。
