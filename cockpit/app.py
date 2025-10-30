@@ -4,11 +4,21 @@ from typing import Dict, Any
 import cv2
 import streamlit as st
 try:
-    from cockpit.ui_components import build_sidebar_controls, render_gallery_selectors, render_header_with_logo
+    from cockpit.ui_components import (
+        build_sidebar_controls,
+        render_gallery_selectors,
+        render_header_with_logo,
+        render_ui_config_editor,
+    )
 except Exception:
     import os, sys
     sys.path.append(os.path.dirname(__file__))
-    from ui_components import build_sidebar_controls, render_gallery_selectors, render_header_with_logo
+    from ui_components import (
+        build_sidebar_controls,
+        render_gallery_selectors,
+        render_header_with_logo,
+        render_ui_config_editor,
+    )
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase
 import logging
 import os
@@ -25,6 +35,9 @@ if not logger.handlers:
     logger.addHandler(_h)
 
 render_header_with_logo()
+
+# 在侧栏提供“界面配置”编辑器（标题、Logo、背景图/开关），自动保存并即时应用
+_ui_cfg = render_ui_config_editor(location="sidebar")
 
 cfg = build_sidebar_controls()
 use_multi_gpu = cfg["use_multi_gpu"]
@@ -63,48 +76,6 @@ gallery = render_gallery_selectors()
 st.subheader("视频采集与实时统计")
 st.subheader("日志输出")
 log_area = st.empty()
-
-# 画廊模式选择（位于统计区上方）：左-脸图（DFM）模型，右-背景图/视频
-st.markdown("---")
-st.subheader("画廊模式选择")
-import glob
-
-def _list_files(patterns):
-    files = []
-    for p in patterns:
-        files.extend(glob.glob(p))
-    return sorted(files)
-
-face_candidates = _list_files([
-    os.path.join("assets", "user", "*.jpg"),
-    os.path.join("assets", "user", "*.jpeg"),
-    os.path.join("assets", "user", "*.png"),
-])
-bg_candidates = _list_files([
-    os.path.join("assets", "user", "*.jpg"),
-    os.path.join("assets", "user", "*.jpeg"),
-    os.path.join("assets", "user", "*.png"),
-    os.path.join("assets", "user", "*.mp4"),
-    os.path.join("assets", "user", "*.mov"),
-])
-
-col_g1, col_g2 = st.columns(2)
-with col_g1:
-    dfm_sel = st.selectbox(
-        "脸图（DFM）模型",
-        options=(face_candidates if face_candidates else ["（无可用，先在侧边栏上传人脸）"]),
-        index=0,
-    )
-with col_g2:
-    bg_sel = st.selectbox(
-        "背景图/视频",
-        options=(bg_candidates if bg_candidates else ["（无可用，先在侧边栏上传背景）"]),
-        index=0,
-    )
-st.session_state["dfm_model_path"] = dfm_sel
-st.session_state["bg_source_path"] = bg_sel
-st.caption("提示：可在左侧“资产上传”中上传人脸与背景文件，随后在此选择。")
-st.markdown("---")
 
 
 class StatsProcessor(VideoProcessorBase):

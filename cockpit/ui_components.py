@@ -3,6 +3,14 @@ import base64
 import streamlit as st
 from typing import Dict, Any, List
 
+# 读写前端配置（容错导入）
+try:
+    from cockpit.frontend_config import load_config, save_config
+except Exception:
+    import sys
+    sys.path.append(os.path.dirname(__file__))
+    from frontend_config import load_config, save_config  # type: ignore
+
 
 def _file_to_data_url(path: str) -> str:
     try:
@@ -33,7 +41,13 @@ def apply_page_background(image_path: str | None = None) -> None:
     st.markdown(css, unsafe_allow_html=True)
 
 
-def render_header_with_logo(logo_path: str = "assets/user/logo.png") -> None:
+def render_header_with_logo() -> None:
+    cfg = load_config()
+    title = cfg.get("title", "Fusion Cockpit")
+    logo_path = cfg.get("logo_path", "assets/user/logo.png")
+    bg_enabled = bool(cfg.get("background_enabled", False))
+    bg_path = cfg.get("background_path", "assets/user/bg.jpg")
+
     left, mid, right = st.columns([1, 6, 1])
     with left:
         if os.path.exists(logo_path):
@@ -41,15 +55,18 @@ def render_header_with_logo(logo_path: str = "assets/user/logo.png") -> None:
         else:
             st.markdown("<div style='font-weight:700;font-size:18px'>Fusion</div>", unsafe_allow_html=True)
     with mid:
-        st.title("Fusion Cockpit")
+        st.title(title)
     with right:
-        # 图标按钮：切换页面背景
-        if st.button("🖼️", help="切换页面背景图", key="toggle_bg_btn"):
-            st.session_state["page_bg_enabled"] = not bool(st.session_state.get("page_bg_enabled", False))
-    if st.session_state.get("page_bg_enabled", False):
-        apply_page_background("assets/user/bg.jpg")
+        # 图标按钮：切换页面背景（直接写入配置并重载）
+        if st.button("🖼️", help="切换页面背景启用/禁用", key="toggle_bg_btn"):
+            cfg["background_enabled"] = not bg_enabled
+            save_config(cfg)
+            st.toast("界面配置已保存：背景开关")
+            st.rerun()
+
+    if bg_enabled:
+        apply_page_background(bg_path)
     else:
-        # 设置一个柔和渐变，避免纯黑
         apply_page_background(None)
 
 
@@ -59,6 +76,16 @@ def _list_files(patterns: List[str]) -> List[str]:
     for p in patterns:
         files.extend(glob.glob(p))
     return sorted(files)
+
+
+def _image_candidates() -> List[str]:
+    return _list_files([
+        os.path.join("assets", "user", "*.png"),
+        os.path.join("assets", "user", "*.jpg"),
+        os.path.join("assets", "user", "*.jpeg"),
+        os.path.join("assets", "user", "*.webp"),
+        os.path.join("assets", "user", "*.gif"),
+    ])
 
 
 def render_gallery_selectors() -> Dict[str, Any]:
@@ -96,6 +123,59 @@ def render_gallery_selectors() -> Dict[str, Any]:
     st.caption("提示：可在左侧“资产上传”中上传人脸与背景文件，随后在此选择。")
     st.markdown("---")
     return {"dfm_model_path": dfm_sel, "bg_source_path": bg_sel}
+
+
+def render_ui_config_editor(location: str = "sidebar") -> Dict[str, Any]:
+    """界面配置编辑器：标题、Logo、背景图与开关。值改变即自动保存并应用。
+
+    location: 目前仅支持 'sidebar'，保留参数便于将来扩展。
+    """
+    cfg = load_config()
+    if location == "sidebar":
+        container = st.sidebar
+    else:
+        container = st
+    container.header("界面配置")
+
+    title_val = container.text_input("标题", value=cfg.get("title", "Fusion Cockpit"), key="ui_title")
+
+    logo_files = _image_candidates()
+    default_logo = cfg.get("logo_path", "assets/user/logo.png")
+    if default_logo and default_logo not in logo_files and os.path.exists(default_logo):
+        logo_files = [default_logo] + logo_files
+    logo_val = container.selectbox("Logo 文件", options=(logo_files or ["(未找到，请先在左侧上传)"]), index=0 if logo_files else 0, key="ui_logo_path")
+
+    bg_files = _image_candidates()
+    default_bg = cfg.get("background_path", "assets/user/bg.jpg")
+    if default_bg and default_bg not in bg_files and os.path.exists(default_bg):
+        bg_files = [default_bg] + bg_files
+    bg_val = container.selectbox("背景图片", options=(bg_files or ["(未找到，请先在左侧上传)"]), index=0 if bg_files else 0, key="ui_bg_path")
+
+    bg_enabled_val = container.checkbox("启用背景图", value=bool(cfg.get("background_enabled", False)), key="ui_bg_enabled")
+
+    changed = (
+        title_val != cfg.get("title")
+        or logo_val != cfg.get("logo_path")
+        or bg_val != cfg.get("background_path")
+        or bool(bg_enabled_val) != bool(cfg.get("background_enabled"))
+    )
+    if changed:
+        cfg.update({
+            "title": title_val,
+            "logo_path": logo_val if isinstance(logo_val, str) else cfg.get("logo_path"),
+            "background_path": bg_val if isinstance(bg_val, str) else cfg.get("background_path"),
+            "background_enabled": bool(bg_enabled_val),
+        })
+        save_config(cfg)
+        container.caption("已自动保存界面配置")
+        # 即刻应用背景与标题（标题在头部组件里刷新；这里优先更新背景）
+        if cfg.get("background_enabled"):
+            apply_page_background(cfg.get("background_path"))
+        else:
+            apply_page_background(None)
+        # 触发一次刷新，让头部标题/Logo 立即生效
+        st.rerun()
+    return cfg
 
 
 def build_sidebar_controls() -> Dict[str, Any]:
