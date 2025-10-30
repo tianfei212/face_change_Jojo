@@ -9,6 +9,7 @@ try:
         render_gallery_selectors,
         render_header_with_logo,
         render_ui_config_editor,
+        render_obs_controls,
     )
 except Exception:
     import os, sys
@@ -18,6 +19,7 @@ except Exception:
         render_gallery_selectors,
         render_header_with_logo,
         render_ui_config_editor,
+        render_obs_controls,
     )
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase
 import logging
@@ -36,8 +38,47 @@ if not logger.handlers:
 
 render_header_with_logo()
 
-# 在侧栏提供“界面配置”编辑器（标题、Logo、背景图/开关），自动保存并即时应用
+# 仅通过配置文件控制标题/Logo/背景；此调用返回配置快照但不渲染控件
 _ui_cfg = render_ui_config_editor(location="sidebar")
+
+# 侧栏：OBS 输出控制与满屏窗口
+_obs_cfg = render_obs_controls()
+
+# 若以 ?fullscreen=1 打开，渲染满屏输出页（隐藏侧边栏/标题，仅保留融合输出占位）
+def _is_fullscreen_mode() -> bool:
+    try:
+        # Streamlit 1.32+
+        q = st.query_params
+        return str(q.get("fullscreen", "0")) == "1"
+    except Exception:
+        # 兼容旧版 API
+        q = st.experimental_get_query_params()  # type: ignore
+        return (q.get("fullscreen", ["0"]) or ["0"]) [0] == "1"
+
+if _is_fullscreen_mode():
+    st.markdown(
+        """
+        <style>
+        header, footer, .stSidebar, [data-testid="stToolbar"], .block-container:has(#fullwrap) ~ * { display: none !important; }
+        .main .block-container { padding: 0; margin: 0; max-width: 100%; }
+        html, body, .stApp { height: 100%; background: #000; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    import streamlit.components.v1 as components
+    html = f"""
+    <div id=fullwrap style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center">
+      <div id="fusionOut" style="width:100vw;height:100vh;background:#000;">
+        <!-- TODO: 接入真实融合视频（HTTP快照/MJPEG/WS） -->
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff;font:600 22px/1.6 sans-serif;opacity:.8">
+          背景融合输出（待接入后端流）
+        </div>
+      </div>
+    </div>
+    """
+    components.html(html, height=0)
+    st.stop()
 
 cfg = build_sidebar_controls()
 use_multi_gpu = cfg["use_multi_gpu"]

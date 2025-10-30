@@ -57,12 +57,8 @@ def render_header_with_logo() -> None:
     with mid:
         st.title(title)
     with right:
-        # 图标按钮：切换页面背景（直接写入配置并重载）
-        if st.button("🖼️", help="切换页面背景启用/禁用", key="toggle_bg_btn"):
-            cfg["background_enabled"] = not bg_enabled
-            save_config(cfg)
-            st.toast("界面配置已保存：背景开关")
-            st.rerun()
+        # 为满足“仅通过配置文件控制”，不再提供界面切换按钮
+        pass
 
     if bg_enabled:
         apply_page_background(bg_path)
@@ -126,56 +122,51 @@ def render_gallery_selectors() -> Dict[str, Any]:
 
 
 def render_ui_config_editor(location: str = "sidebar") -> Dict[str, Any]:
-    """界面配置编辑器：标题、Logo、背景图与开关。值改变即自动保存并应用。
-
-    location: 目前仅支持 'sidebar'，保留参数便于将来扩展。
+    """为兼容旧调用保留空实现：根据需求，界面不再提供这些配置项。
+    仅返回当前配置的快照，且不渲染任何输入控件。
     """
+    return load_config()
+
+
+def render_obs_controls() -> Dict[str, Any]:
+    """侧栏：OBS 输出配置与全屏窗口按钮（持久化到 cockpit/ui_config.json）。"""
+    # 直接使用文件顶部已导入的 load_config/save_config，避免相对导入导致包上下文问题
     cfg = load_config()
-    if location == "sidebar":
-        container = st.sidebar
-    else:
-        container = st
-    container.header("界面配置")
-
-    title_val = container.text_input("标题", value=cfg.get("title", "Fusion Cockpit"), key="ui_title")
-
-    logo_files = _image_candidates()
-    default_logo = cfg.get("logo_path", "assets/user/logo.png")
-    if default_logo and default_logo not in logo_files and os.path.exists(default_logo):
-        logo_files = [default_logo] + logo_files
-    logo_val = container.selectbox("Logo 文件", options=(logo_files or ["(未找到，请先在左侧上传)"]), index=0 if logo_files else 0, key="ui_logo_path")
-
-    bg_files = _image_candidates()
-    default_bg = cfg.get("background_path", "assets/user/bg.jpg")
-    if default_bg and default_bg not in bg_files and os.path.exists(default_bg):
-        bg_files = [default_bg] + bg_files
-    bg_val = container.selectbox("背景图片", options=(bg_files or ["(未找到，请先在左侧上传)"]), index=0 if bg_files else 0, key="ui_bg_path")
-
-    bg_enabled_val = container.checkbox("启用背景图", value=bool(cfg.get("background_enabled", False)), key="ui_bg_enabled")
-
-    changed = (
-        title_val != cfg.get("title")
-        or logo_val != cfg.get("logo_path")
-        or bg_val != cfg.get("background_path")
-        or bool(bg_enabled_val) != bool(cfg.get("background_enabled"))
+    st.sidebar.header("OBS 输出")
+    obs_enabled_def = bool(cfg.get("obs_enabled", False))
+    obs_choice = st.sidebar.radio(
+        "输出到 OBS（HTTP）",
+        options=["关闭", "开启"],
+        index=(1 if obs_enabled_def else 0),
+        horizontal=True,
     )
-    if changed:
-        cfg.update({
-            "title": title_val,
-            "logo_path": logo_val if isinstance(logo_val, str) else cfg.get("logo_path"),
-            "background_path": bg_val if isinstance(bg_val, str) else cfg.get("background_path"),
-            "background_enabled": bool(bg_enabled_val),
-        })
+    obs_enabled = (obs_choice == "开启")
+    obs_url = st.sidebar.text_input("OBS 地址", value=str(cfg.get("obs_url", "http://localhost:8000/obs/push")))
+
+    if obs_enabled != obs_enabled_def or obs_url != cfg.get("obs_url"):
+        cfg["obs_enabled"] = obs_enabled
+        cfg["obs_url"] = obs_url
         save_config(cfg)
-        container.caption("已自动保存界面配置")
-        # 即刻应用背景与标题（标题在头部组件里刷新；这里优先更新背景）
-        if cfg.get("background_enabled"):
-            apply_page_background(cfg.get("background_path"))
-        else:
-            apply_page_background(None)
-        # 触发一次刷新，让头部标题/Logo 立即生效
-        st.rerun()
-    return cfg
+        st.sidebar.caption("OBS 配置已保存")
+
+    # 打开新窗口以满屏显示最终融合画面（使用 query 参数 fullscreen=1）
+    open_full_btn = st.sidebar.button("打开满屏输出窗口", use_container_width=True)
+    if open_full_btn:
+        import streamlit.components.v1 as components
+        components.html(
+            """
+            <script>
+              const url = new URL(window.location.href);
+              url.searchParams.set('fullscreen', '1');
+              window.open(url.toString(), '_blank');
+            </script>
+            """,
+            height=0,
+        )
+
+    st.session_state["obs_enabled"] = obs_enabled
+    st.session_state["obs_url"] = obs_url
+    return {"obs_enabled": obs_enabled, "obs_url": obs_url}
 
 
 def build_sidebar_controls() -> Dict[str, Any]:

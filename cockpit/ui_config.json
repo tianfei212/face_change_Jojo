@@ -1,0 +1,8 @@
+{
+  "title": "Fusion Cockpit",
+  "logo_path": "(未找到，请先在左侧上传)",
+  "background_path": "(未找到，请先在左侧上传)",
+  "background_enabled": false,
+  "obs_enabled": false,
+  "obs_url": "http://localhost:8000/obs/push"
+}

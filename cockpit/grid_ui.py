@@ -16,13 +16,14 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
           <div class=\"label\">原始视频</div>
           <div id=\"hud\" style=\"position:absolute;right:8px;top:8px;color:#0f0;background:rgba(0,0,0,.4);padding:2px 4px;border-radius:4px;font:12px/1.3 monospace\">帧: 0 | FPS: 0.0</div>
         </div>
-        <div class=\"cell\">
-          <img id=\"serverImage\" alt=\"服务器获取图像\" />
-          <div class=\"label\">服务器获取图像</div>
-        </div>
+       
         <div class=\"cell\">
           <div id=\"solidColor\" style=\"width:100%;height:100%;background:{bg_color};\"></div>
           <div class=\"label\">纯色背景</div>
+        </div>
+         <div class=\"cell\">
+          <img id=\"serverImage\" alt=\"服务器获取图像\" />
+          <div class=\"label\">服务器获取图像</div>
         </div>
         <div class=\"cell\">
           <canvas id=\"faceDetect\"></canvas>
