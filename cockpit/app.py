@@ -268,6 +268,12 @@ with preview_container:
         # 本地直显：不创建 webrtc 组件，使用纯浏览器预览并提供 START/STOP
         if local_direct_preview:
             import streamlit.components.v1 as components
+            try:
+                from cockpit.grid_ui import render_local_2x3_grid as _render_grid
+            except Exception:
+                import os, sys
+                sys.path.append(os.path.dirname(__file__))
+                from grid_ui import render_local_2x3_grid as _render_grid
             enabled = bool(st.session_state.get("local_preview_enabled", False))
             label = "STOP" if enabled else "START"
             btn_type = "primary" if enabled else "secondary"
@@ -330,7 +336,14 @@ with preview_container:
             }})();
             </script>
             """
-            components.html(html, height=int(max(H, 360)))
+            _render_grid(
+                enabled=enabled,
+                W=W,
+                H=H,
+                fps_target=fps_target,
+                facing_mode=facing_mode,
+                bg_color=bg_color,
+            )
 
             st.caption("提示：如自动播放受限，请点击视频上的播放按钮或检查浏览器摄像头权限。")
         else:
