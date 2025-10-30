@@ -1,13 +1,14 @@
 from fastapi import APIRouter, UploadFile, File
 import os
 import pathlib
+from ..config import ASSETS_DIR
 
 
 router = APIRouter()
 
-ASSETS_DIR = "/opt/fusion_assets/user"
-ASSETS_FACE = os.path.join(ASSETS_DIR, "face")
-ASSETS_BG = os.path.join(ASSETS_DIR, "background")
+USER_DIR = os.path.join(str(ASSETS_DIR), "user")
+ASSETS_FACE = os.path.join(USER_DIR, "face")
+ASSETS_BG = os.path.join(USER_DIR, "background")
 
 pathlib.Path(ASSETS_FACE).mkdir(parents=True, exist_ok=True)
 pathlib.Path(ASSETS_BG).mkdir(parents=True, exist_ok=True)

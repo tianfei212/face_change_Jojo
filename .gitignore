@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environments
+.venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Data and large assets (keep folders, ignore contents)
+assets/user/*
+!assets/user/
+
+# Node / front-end (if any)
+node_modules/

@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+import pathlib
 
 
 class ModelURLs(BaseModel):
@@ -17,9 +18,16 @@ DEFAULT_MODEL_URLS = ModelURLs(
 )
 
 
+BASE_DIR = pathlib.Path(__file__).resolve().parents[1]
+ASSETS_DIR = BASE_DIR / "assets"
+MODELS_DIR = ASSETS_DIR / "models"
+
+
 class Settings(BaseModel):
     model_urls: ModelURLs = DEFAULT_MODEL_URLS
-    models_dir: str = "/opt/fusion_assets/models"
+    models_dir: str = str(MODELS_DIR)
+    debug: bool = True
+    log_level: str = "DEBUG"
 
 
 settings = Settings()

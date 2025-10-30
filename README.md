@@ -12,6 +12,8 @@
 - `cockpit/` 前端Streamlit Cockpit
 - `run.py` 启动后端服务
 - `requirements.txt` 依赖清单
+ - `OPERATIONS_LOG.md` 操作记录（每日追加）
+ - `scripts/daily_log.py` 每日标签与日志脚本
 
 ## 安装依赖
 
@@ -50,6 +52,16 @@ streamlit run cockpit/app.py
 ```
 
 在浏览器中打开 Streamlit 页面，配置后端地址（默认 `http://localhost:8000`），上传资产并启动/停止流水线。
+
+## 每日标签与操作日志
+
+- 用途：每天生成一个 Git 标签 `daily-YYYY-MM-DD`，并把当日操作记录追加到 `OPERATIONS_LOG.md`。
+- 用法示例：
+  - `python3 scripts/daily_log.py --message "初始化项目架构与依赖"`
+  - 自定义日期：`python3 scripts/daily_log.py --date 2025-10-30 --message "修复资源路径"`
+  - 仅追加日志，不提交/打标签：`python3 scripts/daily_log.py --message "更新README" --no-commit --no-tag`
+  - 提交但不推送：`python3 scripts/daily_log.py --message "本地调试" --no-push`
+
 
 ## 模型自动下载
 

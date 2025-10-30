@@ -5,7 +5,7 @@ from typing import Iterable
 
 import requests
 
-from .config import settings
+from .config import settings, ASSETS_DIR, MODELS_DIR
 
 
 def ensure_dir(path: str) -> None:
@@ -29,6 +29,7 @@ def _download(url: str, dst_path: str) -> None:
 
 
 def download_models(urls: Iterable[tuple[str, str]]) -> None:
+    ensure_dir(str(ASSETS_DIR))
     ensure_dir(settings.models_dir)
     for filename, url in urls:
         dst = os.path.join(settings.models_dir, filename)
