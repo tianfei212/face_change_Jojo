@@ -176,7 +176,7 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
                 sctx.fillRect(8, 8, 180, 28);
                 sctx.fillStyle = '#0f0';
                 sctx.font = 'bold 13px monospace';
-                sctx.fillText(`帧: ${fCount} FPS: ${fpsSolid.toFixed(1)}`, 12, 28);
+                sctx.fillText('帧: ' + fCount + ' FPS: ' + fpsSolid.toFixed(1), 12, 28);
                 sctx.restore();
               }}
 
