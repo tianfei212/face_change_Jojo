@@ -166,15 +166,24 @@ def render_h264_transport_ui(backend: str, facing_mode: str = "user") -> None:
                 const now = performance.now();
                 const dt = now - lastTs;
                 if (dt >= 1000) { fpsSolid = (frames * 1000) / dt; frames = 0; lastTs = now; }
+                // HUD 右上角显示
                 sctx.fillStyle = 'rgba(0,0,0,0.5)';
-                sctx.fillRect(8, 8, 180, 32);
+                sctx.fillRect(W - 8 - 180, 8, 180, 32);
                 sctx.fillStyle = '#0f0';
                 sctx.font = 'bold 14px monospace';
-                sctx.fillText(`帧: ${frames} FPS: ${fpsSolid.toFixed(1)}`, 12, 30);
+                sctx.textAlign = 'right';
+                sctx.fillText(`帧: ${frames} FPS: ${fpsSolid.toFixed(1)}`, W - 12, 30);
                 requestAnimationFrame(composeStep);
               }
               composeStep();
-              fgOnSolid.srcObject = solid.captureStream(30);
+              const solidFps = 30;
+              const solidStream = solid.captureStream(solidFps);
+              fgOnSolid.srcObject = solidStream;
+              // 将“纯色背景合成”作为第三条视频轨发送到后端（优先H.264编码）
+              try {
+                const solidTrack = solidStream.getVideoTracks()[0];
+                if (solidTrack) pc.addTrack(solidTrack, solidStream);
+              } catch(e) { logDbg('add solid track error: ' + e.message); }
             } catch(e) { logDbg('solid compose error: ' + e.message); }
           }
 

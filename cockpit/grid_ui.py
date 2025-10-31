@@ -172,11 +172,13 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
                 const now = performance.now();
                 const dt = now - lastF;
                 if (dt >= 1000) {{ fpsSolid = (fCount * 1000) / dt; fCount = 0; lastF = now; }}
+                // HUD 右上角显示
                 sctx.fillStyle = 'rgba(0,0,0,0.5)';
-                sctx.fillRect(8, 8, 180, 28);
+                sctx.fillRect(CW - 8 - 180, 8, 180, 28);
                 sctx.fillStyle = '#0f0';
                 sctx.font = 'bold 13px monospace';
-                sctx.fillText('帧: ' + fCount + ' FPS: ' + fpsSolid.toFixed(1), 12, 28);
+                sctx.textAlign = 'right';
+                sctx.fillText('帧: ' + fCount + ' FPS: ' + fpsSolid.toFixed(1), CW - 12, 28);
                 sctx.restore();
               }}
 
