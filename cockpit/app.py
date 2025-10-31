@@ -22,7 +22,14 @@ except Exception:
         render_obs_controls,
     )
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase
+try:
+    from cockpit.media_transport import render_h264_transport_ui
+except Exception:
+    import os as _os, sys as _sys
+    _sys.path.append(_os.path.dirname(__file__))
+    from media_transport import render_h264_transport_ui  # type: ignore
 import logging
+import json
 import os
 
 st.set_page_config(page_title="Fusion Cockpit", layout="wide")
@@ -67,15 +74,31 @@ if _is_fullscreen_mode():
         unsafe_allow_html=True,
     )
     import streamlit.components.v1 as components
-    html = f"""
-    <div id=fullwrap style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center">
-      <div id="fusionOut" style="width:100vw;height:100vh;background:#000;">
-        <!-- TODO: 接入真实融合视频（HTTP快照/MJPEG/WS） -->
-        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff;font:600 22px/1.6 sans-serif;opacity:.8">
-          背景融合输出（待接入后端流）
-        </div>
-      </div>
+    # 接入后端快照轮询 /stream/frame（每 500ms 刷新一次），避免 f-string 花括号冲突
+    _backend_js = json.dumps(_ui_cfg.get("backend", "http://localhost:8000"))
+    html = """
+    <div id=fullwrap style=\"position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center\">
+      <img id=\"fusionOut\" alt=\"fusion\" style=\"width:100vw;height:100vh;object-fit:contain;background:#000\" />
     </div>
+    <script>
+      (function(){
+        const img = document.getElementById('fusionOut');
+        const backend = "+_backend_js+";
+        const url = new URL('/stream/frame', backend).toString();
+        let running = true;
+        async function tick(){
+          while(running){
+            try {
+              const u = url + '?_ts=' + Date.now();
+              img.src = u;
+            } catch(e) {}
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+        tick();
+        window.addEventListener('beforeunload', ()=>{ running=false; });
+      })();
+    </script>
     """
     components.html(html, height=0)
     st.stop()
@@ -117,6 +140,13 @@ gallery = render_gallery_selectors()
 st.subheader("视频采集与实时统计")
 st.subheader("日志输出")
 log_area = st.empty()
+
+# 基于 WebRTC 的 H.264 传输测试区块
+st.subheader("H.264 传输测试")
+try:
+    render_h264_transport_ui(backend=backend, facing_mode=facing_mode)
+except Exception as _e:
+    st.warning(f"H.264 传输测试模块加载失败：{_e}")
 
 
 class StatsProcessor(VideoProcessorBase):
