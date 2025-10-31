@@ -97,6 +97,106 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
           }} else {{
             setInterval(() => {{ hud.textContent = `FPS 估计中...`; }}, 1000);
           }}
+
+          // 在“纯色背景”单元挂载合成画面（前景 + 掩码）
+          try {{
+            const solidWrap = document.getElementById('solidColor');
+            if (solidWrap) {{
+              const dpr = window.devicePixelRatio || 1;
+              const CW = 400, CH = 400; // 与 cell 尺寸一致
+              const W = Math.floor(CW * dpr), H = Math.floor(CH * dpr);
+              // 创建显示画布
+              solidWrap.innerHTML = '';
+              const solidCanvas = document.createElement('canvas');
+              solidCanvas.width = W; solidCanvas.height = H;
+              solidCanvas.style.width = CW + 'px';
+              solidCanvas.style.height = CH + 'px';
+              solidCanvas.style.display = 'block';
+              solidCanvas.style.background = '{bg_color}';
+              solidWrap.appendChild(solidCanvas);
+              const sctx = solidCanvas.getContext('2d');
+              sctx.scale(dpr, dpr);
+
+              // 离屏缓冲用于读取像素
+              const off = document.createElement('canvas');
+              off.width = CW; off.height = CH;
+              const octx = off.getContext('2d', {{ willReadFrequently: true }});
+
+              let fCount = 0, lastF = performance.now(), fpsSolid = 0;
+              function drawOnce() {{
+                // 背景填充为纯色
+                sctx.save();
+                sctx.scale(1, 1); // dpr 已在 ctx 上设置
+                sctx.fillStyle = '{bg_color}';
+                sctx.fillRect(0, 0, CW, CH);
+
+                // 将前景按比例绘制到离屏
+                const vw = v.videoWidth || CW, vh = v.videoHeight || CH;
+                const scale = Math.min(CW / vw, CH / vh);
+                const dw = Math.max(1, Math.floor(vw * scale));
+                const dh = Math.max(1, Math.floor(vh * scale));
+                const dx = Math.floor((CW - dw) / 2);
+                const dy = Math.floor((CH - dh) / 2);
+                octx.clearRect(0,0,CW,CH);
+                if (dw > 0 && dh > 0) {{
+                  octx.drawImage(v, dx, dy, dw, dh);
+                }}
+
+                // 读取前景像素与掩码像素（如果有）
+                const fgImg = octx.getImageData(0,0,CW,CH);
+                const fg = fgImg.data;
+                let maskData = null;
+                const maskEl = document.getElementById('maskCanvas');
+                if (maskEl) {{
+                  try {{
+                    const mctx = maskEl.getContext('2d');
+                    const mImg = mctx.getImageData(0,0,CW,CH);
+                    maskData = mImg.data;
+                  }} catch (e) {{ maskData = null; }}
+                }}
+
+                // 合成：按掩码 alpha 将前景覆盖到纯色底；无掩码时用亮度阈值近似
+                const N = fg.length;
+                for (let i = 0; i < N; i += 4) {{
+                  let a = 0;
+                  if (maskData) {{
+                    // 使用掩码的 R 通道当作 alpha（前端占位掩码输出灰度在 R/G/B 同步，取 R 即可）
+                    a = maskData[i];
+                  }} else {{
+                    // 近似：用 Y（亮度）作为粗略 alpha
+                    const r = fg[i], g = fg[i+1], b = fg[i+2];
+                    const y = 0.2126*r + 0.7152*g + 0.0722*b;
+                    a = y; // 近似，后续可替换为真实抠像
+                  }}
+                  fg[i]   = (fg[i]   * a) / 255;
+                  fg[i+1] = (fg[i+1] * a) / 255;
+                  fg[i+2] = (fg[i+2] * a) / 255;
+                  // alpha 通道保持原始或可设置为 a
+                  fg[i+3] = 255;
+                }}
+
+                sctx.putImageData(fgImg, 0, 0);
+
+                // HUD: 统计并叠加帧数/FPS
+                fCount++;
+                const now = performance.now();
+                const dt = now - lastF;
+                if (dt >= 1000) {{ fpsSolid = (fCount * 1000) / dt; fCount = 0; lastF = now; }}
+                sctx.fillStyle = 'rgba(0,0,0,0.5)';
+                sctx.fillRect(8, 8, 180, 28);
+                sctx.fillStyle = '#0f0';
+                sctx.font = 'bold 13px monospace';
+                sctx.fillText(`帧: ${fCount} FPS: ${fpsSolid.toFixed(1)}`, 12, 28);
+                sctx.restore();
+              }}
+
+              // 优先用 requestVideoFrameCallback 驱动绘制，退化到 rAF
+              const step = () => {{ drawOnce(); requestAnimationFrame(step); }};
+              requestAnimationFrame(step);
+            }}
+          }} catch (e) {{
+            console.warn('纯色背景合成失败: ', e);
+          }}
         }} catch (e) {{
           hud.textContent = '无法打开摄像头: ' + e.message;
         }}
