@@ -142,36 +142,26 @@ def render_local_2x3_grid(enabled: bool, W: int, H: int, fps_target: int, facing
                   octx.drawImage(v, dx, dy, dw, dh);
                 }}
 
-                // 读取前景像素与掩码像素（如果有）
+                // 读取前景像素并在本组件内生成掩码（占位算法：亮度自适应阈值）
                 const fgImg = octx.getImageData(0,0,CW,CH);
                 const fg = fgImg.data;
-                let maskData = null;
-                const maskEl = document.getElementById('maskCanvas');
-                if (maskEl) {{
-                  try {{
-                    const mctx = maskEl.getContext('2d');
-                    const mImg = mctx.getImageData(0,0,CW,CH);
-                    maskData = mImg.data;
-                  }} catch (e) {{ maskData = null; }}
+                // 计算平均亮度，作为动态阈值基础
+                let sumY = 0;
+                for (let i = 0; i < fg.length; i += 4) {{
+                  const r = fg[i], g = fg[i+1], b = fg[i+2];
+                  sumY += 0.2126*r + 0.7152*g + 0.0722*b;
                 }}
+                const meanY = sumY / (CW * CH);
+                const thr = Math.min(255, Math.max(0, meanY * 0.9)); // 自适应阈值
 
-                // 合成：按掩码 alpha 将前景覆盖到纯色底；无掩码时用亮度阈值近似
-                const N = fg.length;
-                for (let i = 0; i < N; i += 4) {{
-                  let a = 0;
-                  if (maskData) {{
-                    // 使用掩码的 R 通道当作 alpha（前端占位掩码输出灰度在 R/G/B 同步，取 R 即可）
-                    a = maskData[i];
-                  }} else {{
-                    // 近似：用 Y（亮度）作为粗略 alpha
-                    const r = fg[i], g = fg[i+1], b = fg[i+2];
-                    const y = 0.2126*r + 0.7152*g + 0.0722*b;
-                    a = y; // 近似，后续可替换为真实抠像
-                  }}
-                  fg[i]   = (fg[i]   * a) / 255;
-                  fg[i+1] = (fg[i+1] * a) / 255;
-                  fg[i+2] = (fg[i+2] * a) / 255;
-                  // alpha 通道保持原始或可设置为 a
+                // 合成：根据自适应亮度阈值构造二值掩码并叠加到纯色底
+                for (let i = 0; i < fg.length; i += 4) {{
+                  const r = fg[i], g = fg[i+1], b = fg[i+2];
+                  const y = 0.2126*r + 0.7152*g + 0.0722*b;
+                  const a = y > thr ? 255 : 0; // 简单二值掩码
+                  fg[i]   = (r * a) / 255;
+                  fg[i+1] = (g * a) / 255;
+                  fg[i+2] = (b * a) / 255;
                   fg[i+3] = 255;
                 }}
 
