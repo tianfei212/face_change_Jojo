@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+import os
 import pathlib
 
 
@@ -10,11 +11,12 @@ class ModelURLs(BaseModel):
 
 
 DEFAULT_MODEL_URLS = ModelURLs(
-    # Placeholder URLs; replace with real HF or storage links
-    rvm="https://example.com/models/rvm.onnx",
-    retinaface="https://example.com/models/retinaface_mnet.onnx",
-    bisenet="https://example.com/models/bisenet.onnx",
-    dfl="https://example.com/models/dfl.onnx",
+    # 可通过环境变量覆盖，便于自动下载真实模型地址
+    # 如：MODEL_URL_RVM, MODEL_URL_RETINAFACE, MODEL_URL_BISENET, MODEL_URL_DFL
+    rvm=os.getenv("MODEL_URL_RVM", "https://example.com/models/rvm.onnx"),
+    retinaface=os.getenv("MODEL_URL_RETINAFACE", "https://example.com/models/retinaface_mnet.onnx"),
+    bisenet=os.getenv("MODEL_URL_BISENET", "https://example.com/models/bisenet.onnx"),
+    dfl=os.getenv("MODEL_URL_DFL", "https://example.com/models/dfl.onnx"),
 )
 
 
