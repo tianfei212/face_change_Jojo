@@ -40,9 +40,13 @@ def render_h264_transport_ui(backend: str, facing_mode: str = "user") -> None:
           <canvas id=\"maskCanvas\" width=\"320\" height=\"180\" style=\"width:100%;height:auto;background:#111;border-radius:6px\"></canvas>
         </div>
         <div>
-          <div style=\"color:#aaa;margin-bottom:6px\">调试信息</div>
-          <pre id=\"dbg\" style=\"margin:0;color:#8f8;background:#222;padding:8px;border-radius:6px;max-height:180px;overflow:auto;font:12px/1.4 monospace\"></pre>
+          <div style=\"color:#aaa;margin-bottom:6px\">纯色背景合成（本地）</div>
+          <video id=\"fgOnSolid\" autoplay muted playsinline style=\"width:100%;height:auto;background:#000;border-radius:6px\"></video>
         </div>
+      </div>
+      <div style=\"margin-top:8px\">
+        <div style=\"color:#aaa;margin-bottom:4px\">调试信息</div>
+        <pre id=\"dbg\" style=\"margin:0;color:#8f8;background:#222;padding:8px;border-radius:6px;max-height:180px;overflow:auto;font:12px/1.4 monospace\"></pre>
       </div>
     </div>
     <script>
@@ -57,6 +61,7 @@ def render_h264_transport_ui(backend: str, facing_mode: str = "user") -> None:
       const maskToggle = document.getElementById('maskToggle');
       const maskCanvas = document.getElementById('maskCanvas');
       const dbg = document.getElementById('dbg');
+      const fgOnSolid = document.getElementById('fgOnSolid');
       let pc = null, localStream = null;
       let maskStream = null, maskTrack = null;
       let maskRunning = false;
@@ -121,6 +126,56 @@ def render_h264_transport_ui(backend: str, facing_mode: str = "user") -> None:
             maskStream = maskCanvas.captureStream(fps);
             maskTrack = maskStream.getVideoTracks()[0];
             pc.addTrack(maskTrack, maskStream);
+
+            // 同步生成“纯色背景合成”预览：将前景与掩码合成到纯色底（黑）并叠加帧数/FPS
+            try {
+              const offscreen = document.createElement('canvas');
+              offscreen.width = maskCanvas.width; offscreen.height = maskCanvas.height;
+              const octx = offscreen.getContext('2d', { willReadFrequently: true });
+              const solid = document.createElement('canvas');
+              solid.width = maskCanvas.width; solid.height = maskCanvas.height;
+              const sctx = solid.getContext('2d');
+              const fv = localV;
+              let frames = 0, lastTs = performance.now(), fpsSolid = 0;
+              function composeStep(){
+                if (!maskRunning) return;
+                // draw foreground resized
+                const vw = fv.videoWidth || 640, vh = fv.videoHeight || 360;
+                const W = offscreen.width, H = offscreen.height;
+                const s = Math.min(W / vw, H / vh);
+                const dw = Math.max(1, Math.floor(vw * s)), dh = Math.max(1, Math.floor(vh * s));
+                const dx = Math.floor((W - dw) / 2), dy = Math.floor((H - dh) / 2);
+                octx.clearRect(0,0,W,H);
+                octx.drawImage(fv, dx, dy, dw, dh);
+                const fgImg = octx.getImageData(0,0,W,H);
+                const fg = fgImg.data;
+                const maskImg = maskCanvas.getContext('2d').getImageData(0,0,W,H);
+                const m = maskImg.data;
+                // compose on solid black
+                for (let i = 0; i < fg.length; i += 4) {
+                  const a = m[i]; // gray in R channel
+                  fg[i]   = (fg[i]   * a) / 255;
+                  fg[i+1] = (fg[i+1] * a) / 255;
+                  fg[i+2] = (fg[i+2] * a) / 255;
+                  // fg[i+3] alpha leave
+                }
+                // write to solid canvas
+                sctx.putImageData(fgImg, 0, 0);
+                // HUD: frames/FPS overlay
+                frames++;
+                const now = performance.now();
+                const dt = now - lastTs;
+                if (dt >= 1000) { fpsSolid = (frames * 1000) / dt; frames = 0; lastTs = now; }
+                sctx.fillStyle = 'rgba(0,0,0,0.5)';
+                sctx.fillRect(8, 8, 180, 32);
+                sctx.fillStyle = '#0f0';
+                sctx.font = 'bold 14px monospace';
+                sctx.fillText(`帧: ${frames} FPS: ${fpsSolid.toFixed(1)}`, 12, 30);
+                requestAnimationFrame(composeStep);
+              }
+              composeStep();
+              fgOnSolid.srcObject = solid.captureStream(30);
+            } catch(e) { logDbg('solid compose error: ' + e.message); }
           }
 
           // 优先选择 H.264 编码（若浏览器支持）

@@ -12,6 +12,10 @@ from aiortc import (
     RTCRtpSender,
 )
 from aiortc.contrib.media import MediaRelay
+import os
+import numpy as np
+
+from ..config import ASSETS_DIR
 
 
 router = APIRouter()
@@ -65,11 +69,13 @@ class ComposedTrack(VideoStreamTrack):
         self.mask_src = mask
         self._latest_mask: Optional[av.VideoFrame] = None
         self._mask_task: Optional[asyncio.Task] = None
+        self._bg: Optional[any] = None  # numpy array BGR background
         self._counter = 0
         self._last_ts: Optional[float] = None
         self._fps = 0.0
         if self.mask_src is not None:
             self._mask_task = asyncio.create_task(self._pump_mask())
+        self._load_background()
 
     async def _pump_mask(self):
         try:
@@ -108,8 +114,17 @@ class ComposedTrack(VideoStreamTrack):
                 if m.shape[0] != img.shape[0] or m.shape[1] != img.shape[1]:
                     m = cv2.resize(m, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_LINEAR)
                 alpha = (m.astype("float32") / 255.0).reshape(img.shape[0], img.shape[1], 1)
-                # Black background composition
-                img = (img.astype("float32") * alpha).astype("uint8")
+                # Background composition (image or black)
+                if self._bg is None or self._bg.shape[:2] != img.shape[:2]:
+                    bg = self._bg
+                    if bg is None:
+                        bg = self._make_black(img.shape[1], img.shape[0])
+                    else:
+                        bg = cv2.resize(bg, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_AREA)
+                    self._bg = bg
+                fg_f = img.astype("float32")
+                bg_f = self._bg.astype("float32")
+                img = (fg_f * alpha + bg_f * (1.0 - alpha)).astype("uint8")
             except Exception:
                 pass
 
@@ -121,6 +136,29 @@ class ComposedTrack(VideoStreamTrack):
         out.pts = fg_frame.pts
         out.time_base = fg_frame.time_base
         return out
+
+    def _make_black(self, w: int, h: int):
+        return (np.zeros((h, w, 3), dtype=np.uint8))
+
+    def _load_background(self):
+        try:
+            import numpy as np  # local import to avoid global dependency if unused
+            # Find latest image in assets/user/background
+            bg_dir = os.path.join(str(ASSETS_DIR), "user", "background")
+            if not os.path.isdir(bg_dir):
+                self._bg = None
+                return
+            files = [f for f in os.listdir(bg_dir) if f.lower().endswith((".jpg", ".jpeg", ".png"))]
+            if not files:
+                self._bg = None
+                return
+            # Pick the most recently modified
+            files.sort(key=lambda f: os.path.getmtime(os.path.join(bg_dir, f)), reverse=True)
+            path = os.path.join(bg_dir, files[0])
+            bg = cv2.imread(path)
+            self._bg = bg if bg is not None else None
+        except Exception:
+            self._bg = None
 
 
 @router.post("/sdp")
